@@ -1,0 +1,19 @@
+# Stable Diffusion v1.5 Source Code Requirements
+# These are the exact versions used in the source implementation
+
+torch>=2.8.0
+torchvision>=0.23.0
+diffusers>=0.34.0
+transformers>=4.55.0
+accelerate>=1.10.0
+safetensors>=0.6.0
+Pillow>=11.3.0
+numpy>=2.3.0
+huggingface-hub>=0.34.0
+tokenizers>=0.21.0
+regex>=2025.7.0
+requests>=2.32.0
+tqdm>=4.67.0
+packaging>=25.0
+PyYAML>=6.0
+psutil>=7.0.0
