@@ -60,13 +60,13 @@ class StableDiffusionGUI:
         self.browse_lora_btn = ttk.Button(lora_frame, text="Browse", command=self.browse_lora)
         self.browse_lora_btn.grid(row=0, column=2)
         
-                          # Load LoRA Button
-         self.load_lora_btn = ttk.Button(lora_frame, text="Load LoRA", command=self.load_lora_async)
-         self.load_lora_btn.grid(row=1, column=1, pady=(10, 0))
+        # Load LoRA Button
+        self.load_lora_btn = ttk.Button(lora_frame, text="Load LoRA", command=self.load_lora_async)
+        self.load_lora_btn.grid(row=1, column=1, pady=(10, 0))
          
          # Disable LoRA Button
-         self.disable_lora_btn = ttk.Button(lora_frame, text="Disable LoRA", command=self.disable_lora, state="disabled")
-         self.disable_lora_btn.grid(row=1, column=2, padx=(10, 0), pady=(10, 0))
+        self.disable_lora_btn = ttk.Button(lora_frame, text="Disable LoRA", command=self.disable_lora, state="disabled")
+        self.disable_lora_btn.grid(row=1, column=2, padx=(10, 0), pady=(10, 0))
         
         # LoRA Status
         self.lora_status_var = tk.StringVar(value="No LoRA loaded")
