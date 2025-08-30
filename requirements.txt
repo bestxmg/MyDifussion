@@ -1,0 +1,27 @@
+# MyDifussion - Stable Diffusion GPU Learning Project
+# Core dependencies for the project
+
+# Stable Diffusion and AI
+diffusers>=0.21.0
+transformers>=4.30.0
+torch>=2.0.0
+torchvision>=0.15.0
+accelerate>=0.20.0
+
+# Image processing
+Pillow>=9.0.0
+numpy>=1.21.0
+
+# GUI and utilities
+tkinter  # Usually comes with Python
+scipy>=1.9.0
+
+# Optional: For advanced features
+# safetensors>=0.3.0  # For LoRA models
+# xformers>=0.0.16  # For memory optimization (optional)
+
+# Development dependencies (install with: pip install -r requirements.txt[dev])
+# pre-commit
+# black
+# flake8
+# pytest
