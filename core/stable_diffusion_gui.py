@@ -17,13 +17,17 @@ class StableDiffusionGUI:
     def __init__(self, root):
         self.root = root
         self.root.title("Stable Diffusion Image Generator")
-        self.root.geometry("800x700")
+        self.root.geometry("900x800")
         
         # Model and pipeline
         self.pipe = None
         self.is_loading = False
         self.is_generating = False
         self.should_stop = False
+        
+        # LoRA settings
+        self.lora_loaded = False
+        self.lora_path = None
         
         # Create GUI elements
         self.create_widgets()
@@ -43,23 +47,50 @@ class StableDiffusionGUI:
                                font=("Arial", 16, "bold"))
         title_label.grid(row=0, column=0, columnspan=2, pady=(0, 20))
         
+        # LoRA Control Frame
+        lora_frame = ttk.LabelFrame(main_frame, text="LoRA Settings (Optional)", padding="10")
+        lora_frame.grid(row=1, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        
+        # LoRA Path
+        ttk.Label(lora_frame, text="LoRA Path:").grid(row=0, column=0, sticky=tk.W, padx=(0, 10))
+        self.lora_path_var = tk.StringVar()
+        self.lora_path_entry = ttk.Entry(lora_frame, textvariable=self.lora_path_var, width=50)
+        self.lora_path_entry.grid(row=0, column=1, sticky=(tk.W, tk.E), padx=(0, 10))
+        
+        self.browse_lora_btn = ttk.Button(lora_frame, text="Browse", command=self.browse_lora)
+        self.browse_lora_btn.grid(row=0, column=2)
+        
+                          # Load LoRA Button
+         self.load_lora_btn = ttk.Button(lora_frame, text="Load LoRA", command=self.load_lora_async)
+         self.load_lora_btn.grid(row=1, column=1, pady=(10, 0))
+         
+         # Disable LoRA Button
+         self.disable_lora_btn = ttk.Button(lora_frame, text="Disable LoRA", command=self.disable_lora, state="disabled")
+         self.disable_lora_btn.grid(row=1, column=2, padx=(10, 0), pady=(10, 0))
+        
+        # LoRA Status
+        self.lora_status_var = tk.StringVar(value="No LoRA loaded")
+        self.lora_status_label = ttk.Label(lora_frame, textvariable=self.lora_status_var, 
+                                          foreground="orange")
+        self.lora_status_label.grid(row=2, column=0, columnspan=3, pady=(5, 0))
+        
         # Prompt input
-        ttk.Label(main_frame, text="Describe the image you want:").grid(row=1, column=0, sticky=tk.W, pady=(0, 5))
+        ttk.Label(main_frame, text="Describe the image you want:").grid(row=2, column=0, sticky=tk.W, pady=(10, 5))
         
         self.prompt_entry = scrolledtext.ScrolledText(main_frame, height=3, width=70)
-        self.prompt_entry.grid(row=2, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
-        self.prompt_entry.insert(tk.END, "black dog, sitting, cute, high quality, detailed")
+        self.prompt_entry.grid(row=3, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.prompt_entry.insert(tk.END, "danganronpa character, anime style, colorful, vibrant")
         
         # Negative prompt
-        ttk.Label(main_frame, text="Negative prompt (what to avoid):").grid(row=3, column=0, sticky=tk.W, pady=(0, 5))
+        ttk.Label(main_frame, text="Negative prompt (what to avoid):").grid(row=4, column=0, sticky=tk.W, pady=(0, 5))
         
         self.negative_prompt_entry = scrolledtext.ScrolledText(main_frame, height=2, width=70)
-        self.negative_prompt_entry.grid(row=4, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        self.negative_prompt_entry.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
         self.negative_prompt_entry.insert(tk.END, "low quality, blurry, distorted, ugly, bad anatomy")
         
         # Settings frame
         settings_frame = ttk.LabelFrame(main_frame, text="Generation Settings", padding="10")
-        settings_frame.grid(row=5, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
+        settings_frame.grid(row=6, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 20))
         
         # Resolution
         ttk.Label(settings_frame, text="Resolution:").grid(row=0, column=0, sticky=tk.W)
@@ -93,7 +124,7 @@ class StableDiffusionGUI:
         
         # Generate/Stop button frame
         button_frame = ttk.Frame(main_frame)
-        button_frame.grid(row=6, column=0, columnspan=2, pady=20)
+        button_frame.grid(row=7, column=0, columnspan=2, pady=20)
         
         # Generate button
         self.generate_btn = ttk.Button(button_frame, text="🎨 Generate Image", 
@@ -107,7 +138,7 @@ class StableDiffusionGUI:
         
         # Progress frame
         progress_frame = ttk.LabelFrame(main_frame, text="Generation Progress", padding="10")
-        progress_frame.grid(row=7, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
+        progress_frame.grid(row=8, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(0, 10))
         
         # Progress bar
         self.progress_bar = ttk.Progressbar(progress_frame, mode='determinate', length=300)
@@ -125,7 +156,7 @@ class StableDiffusionGUI:
         
         # Image display
         image_frame = ttk.LabelFrame(main_frame, text="Generated Image", padding="10")
-        image_frame.grid(row=8, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
+        image_frame.grid(row=9, column=0, columnspan=2, sticky=(tk.W, tk.E, tk.N, tk.S), pady=(0, 10))
         
         self.image_label = ttk.Label(image_frame, text="Image will appear here after generation")
         self.image_label.grid(row=0, column=0)
@@ -133,17 +164,78 @@ class StableDiffusionGUI:
         # Save button
         self.save_btn = ttk.Button(main_frame, text="💾 Save Image", 
                                   command=self.save_image, state="disabled")
-        self.save_btn.grid(row=9, column=0, columnspan=2, pady=10)
+        self.save_btn.grid(row=10, column=0, columnspan=2, pady=10)
         
-        # Status bar
+                # Status bar
         self.status_var = tk.StringVar(value="Loading model... Please wait")
         status_bar = ttk.Label(main_frame, textvariable=self.status_var, relief=tk.SUNKEN)
-        status_bar.grid(row=10, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
+        status_bar.grid(row=11, column=0, columnspan=2, sticky=(tk.W, tk.E), pady=(10, 0))
         
-        # Configure grid weights
+        # Configure grid weights for better layout
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=1)
         main_frame.columnconfigure(1, weight=1)
+        main_frame.rowconfigure(9, weight=1)  # Make image frame expandable
+        image_frame.columnconfigure(0, weight=1)
+        image_frame.rowconfigure(0, weight=1)
+    
+    def browse_lora(self):
+        """Browse for LoRA file"""
+        lora_path = filedialog.askdirectory(title="Select LoRA Directory")
+        if lora_path:
+            self.lora_path_var.set(lora_path)
+            self.lora_status_var.set("LoRA path selected - not loaded yet")
+            self.lora_status_label.config(foreground="orange")
+    
+    def load_lora_async(self):
+        """Load LoRA asynchronously"""
+        if not self.pipe:
+            messagebox.showerror("Error", "Please wait for the base model to load first")
+            return
+        
+        lora_path = self.lora_path_var.get().strip()
+        if not lora_path:
+            messagebox.showerror("Error", "Please select a LoRA path first")
+            return
+        
+        if not os.path.exists(lora_path):
+            messagebox.showerror("Error", f"LoRA path does not exist: {lora_path}")
+            return
+        
+        def load_lora():
+            try:
+                self.root.after(0, lambda: self.lora_status_var.set("Loading LoRA..."))
+                self.root.after(0, lambda: self.lora_status_label.config(foreground="blue"))
+                
+                # Save original UNet before loading LoRA
+                if not hasattr(self, 'original_unet'):
+                    self.original_unet = self.pipe.unet
+                
+                # Load LoRA weights
+                from peft import PeftModel
+                self.pipe.unet = PeftModel.from_pretrained(self.pipe.unet, lora_path)
+                
+                self.root.after(0, lambda: self.lora_status_var.set(f"LoRA loaded successfully from {os.path.basename(lora_path)}"))
+                self.root.after(0, lambda: self.lora_status_label.config(foreground="green"))
+                self.root.after(0, lambda: self.load_lora_btn.config(state="disabled"))
+                self.root.after(0, lambda: self.disable_lora_btn.config(state="normal"))
+                self.lora_loaded = True
+                
+            except Exception as e:
+                self.root.after(0, lambda: self.lora_status_var.set(f"Error loading LoRA: {str(e)}"))
+                self.root.after(0, lambda: self.lora_status_label.config(foreground="red"))
+        
+        threading.Thread(target=load_lora, daemon=True).start()
+    
+    def disable_lora(self):
+        """Disable LoRA and return to base model"""
+        if hasattr(self, 'original_unet'):
+            self.pipe.unet = self.original_unet
+            self.lora_status_var.set("LoRA disabled - using base model")
+            self.lora_status_label.config(foreground="orange")
+            self.load_lora_btn.config(state="normal")
+            self.disable_lora_btn.config(state="disabled")
+            self.lora_loaded = False
     
     def load_model_async(self):
         """Load the model in a background thread"""
